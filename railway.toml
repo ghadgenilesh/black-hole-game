@@ -2,4 +2,4 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "npx serve -s public"
+startCommand = "npm start"
