@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Black Hole Game</title>
+  <!-- Google Fonts & Material Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&family=Abril+Fatface&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    :root{
+      --p1:#4f46e5;      /* indigo-600 */
+      --p1-ghost:#eef2ff;/* indigo-50 */
+      --p2:#f97316;      /* orange-500 */
+      --p2-ghost:#fff7ed;/* orange-50 */
+      --p3:#10b981;      /* emerald-500 */
+      --p3-ghost:#ecfdf5;/* emerald-50 */
+      --hole:#0f172a;    /* dark accent for hole */
+      --bg:#f7fafc;      /* light background */
+      --panel:#ffffff;   /* card */
+      --muted:#6b7280;   /* gray-500 */
+      --elev: 0 6px 18px rgba(16,24,40,.08);
+      --ring: 0 0 0 4px rgba(79,70,229,.06);
+    }
+    html,body{height:100%;}
+    body{margin:0; font-family:'Poppins', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial;
+      color:#0f172a; background:linear-gradient(180deg,var(--bg),#eef2f7 60%);
+      display:grid; place-items:center; padding:28px;}
+    .container{width:min(1200px,98vw);} 
+  /* decorative soft blobs behind the UI */
+  .container{position:relative; overflow:visible}
+  .container::before{content:''; position:absolute; left:-6%; top:-8%; width:640px; height:640px; background: radial-gradient(circle at 24% 30%, rgba(79,70,229,.10), transparent 18%), radial-gradient(circle at 76% 72%, rgba(16,185,129,.06), transparent 18%); filter:blur(48px); z-index:-1; transform:translateY(-12px)}
+    header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap}
+    h1{font-size:clamp(22px,2.2vw+12px,34px); margin:0; letter-spacing:.2px; font-weight:700}
+  .subtitle{font-size:13px; color:var(--muted); margin-top:6px; font-weight:500}
+    .controls{display:flex; flex-wrap:wrap; gap:8px}
+    .panel{background:var(--panel); border-radius:14px; padding:12px 14px; box-shadow:var(--elev); display:flex; align-items:center; gap:12px}
+    select, button, input[type="text"]{background:transparent; color:inherit; border:0; border-radius:8px; padding:10px 12px; font-weight:600;}
+    button{cursor:pointer; background:#fff; box-shadow:var(--elev); padding:10px 14px; border-radius:12px; display:inline-flex; align-items:center; gap:8px; font-weight:700}
+    button.primary{background:linear-gradient(90deg,var(--p1),#7c3aed); color:white}
+    button.ghost{background:transparent; box-shadow:none; border:1px solid rgba(15,23,42,.06);}
+    button:active{transform:translateY(1px)}
+    button[disabled]{opacity:.6; cursor:not-allowed}
+  /* ripple effect */
+  button{position:relative; overflow:hidden}
+  .ripple{position:absolute; border-radius:50%; transform:scale(0); background:rgba(255,255,255,.5); animation:ripple .6s linear; pointer-events:none}
+  @keyframes ripple{to{transform:scale(6); opacity:0}}
+    .legend{display:grid; grid-template-columns: auto auto auto auto; gap:8px; align-items:center}
+    .legend .player{display:flex; align-items:center; gap:8px}
+    .dot{width:14px;height:14px;border-radius:50%}
+    .p1{background:var(--p1)}
+    .p2{background:var(--p2)}
+    .p3{background:var(--p3)}
+
+  .board-wrap{margin-top:14px; background:var(--panel); padding:22px; border-radius:16px; box-shadow:var(--elev)}
+    .board{display:flex; flex-direction:column; align-items:center; gap:14px;}
+  .row{display:flex; gap:14px}
+    .row{opacity:0; transform:translateY(10px); animation:rowIn .36s cubic-bezier(.2,.9,.2,1) forwards}
+    @keyframes rowIn{to{opacity:1; transform:translateY(0)}}
+  .cell{width:84px; height:84px; border-radius:50%; display:grid; place-items:center; font-weight:800; font-size:22px; color:var(--hole); background:transparent; border:2px dashed rgba(15,23,42,.06); position:relative; transition:transform .12s cubic-bezier(.2,.9,.2,1), box-shadow .12s; user-select:none}
+  .cell.empty:hover{transform:translateY(-6px); box-shadow:0 14px 30px rgba(16,24,40,.06)}
+  .cell.filled{border-style:solid; color:var(--hole)}
+  .cell.owner-0{background:var(--p1-ghost); border-color:var(--p1)}
+  .cell.owner-1{background:var(--p2-ghost); border-color:var(--p2)}
+  .cell.owner-2{background:var(--p3-ghost); border-color:var(--p3)}
+  .cell.hole{background:linear-gradient(180deg,#0b1220,#0f172a); border-color:#000; color:#fff; box-shadow:0 10px 30px rgba(11,17,26,.5)}
+  .holeReveal{animation:holePop .6s cubic-bezier(.2,.9,.2,1);}
+  @keyframes holePop{0%{transform:scale(.6); opacity:0}60%{transform:scale(1.08); opacity:1}100%{transform:scale(1)}}
+  .cell.placed{animation:pop .32s cubic-bezier(.2,.8,.2,1)}
+  @keyframes pop{0%{transform:scale(.6); opacity:0}60%{transform:scale(1.06); opacity:1}100%{transform:scale(1)}}
+
+  .statusbar{display:flex; justify-content:space-between; gap:12px; margin-top:14px; flex-wrap:wrap}
+  .status{background:transparent; border:0; border-radius:12px; padding:10px 12px; min-height:44px; display:flex; align-items:center; gap:10px}
+
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:22px; background:#fff; color:var(--hole); padding:10px 14px; border-radius:12px; border:1px solid rgba(15,23,42,.04); box-shadow:var(--elev); opacity:0; transition:opacity .25s ease, transform .25s ease; z-index:40}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(-6px)}
+
+  /* number pulse */
+  .numPulse{animation:popNum .48s cubic-bezier(.2,.8,.2,1)}
+  @keyframes popNum{0%{transform:scale(.9); opacity:.6}50%{transform:scale(1.12)}100%{transform:scale(1); opacity:1}}
+
+    /* Modal (now draggable) */
+  .modal-backdrop{position:fixed; inset:0; backdrop-filter:blur(6px); background:rgba(10,12,16,.08); display:none; z-index:50}
+  .modal-backdrop.show{display:block; animation:fadeIn .22s ease}
+  .modal{position:absolute; background:var(--panel); border:1px solid rgba(15,23,42,.06); border-radius:12px; padding:0; width:min(560px,92vw); box-shadow:var(--elev); opacity:0; transform:translateY(8px) scale(.98); transition:opacity .18s ease, transform .18s ease} 
+  .modal.show{opacity:1; transform:translateY(0) scale(1)}
+  .modal header{cursor:move; user-select:none; padding:14px 16px; border-bottom:1px solid rgba(15,23,42,.04); border-top-left-radius:12px; border-top-right-radius:12px; background:transparent}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .modal .content{padding:18px}
+  .modal h2{margin:0; font-family:'Abril Fatface', serif}
+
+  /* select wrapper */
+  .selectWrap{position:relative; display:inline-flex; align-items:center}
+  .selectWrap .caret{position:absolute; right:8px; pointer-events:none; color:var(--muted); font-size:12px}
+  .selectWrap select{appearance:none; padding-right:26px}
+
+  /* avatar bubble */
+  .avatar{width:32px;height:32px;border-radius:50%;display:inline-grid;place-items:center;font-weight:700;margin-right:6px;background:linear-gradient(90deg,var(--p1),#7c3aed);color:white;font-size:13px}
+  .player .avatar#av1{background:linear-gradient(90deg,var(--p2),#fb923c)}
+  .player .avatar#av2{background:linear-gradient(90deg,var(--p3),#34d399)}
+
+    @media (max-width: 560px){ .cell{width:56px;height:56px;font-size:18px} }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+    <div>
+      <h1 style="font-family: 'Abril Fatface', serif;">Black Hole — 2–3 Players</h1>
+      <div class="subtitle">A tactile, number-placement puzzle — place carefully around the black hole.</div>
+    </div>
+      <div class="controls">
+        <div class="panel" style="gap:8px">
+          <label for="playerCount" style="font-weight:700">Players</label>
+          <div class="selectWrap">
+            <select id="playerCount" aria-label="Number of players">
+              <option value="2" selected>2</option>
+              <option value="3">3</option>
+            </select>
+            <span class="caret">▾</span>
+          </div>
+          <label for="winMode" style="font-weight:700">Win by</label>
+          <select id="winMode" aria-label="Choose win condition">
+            <option value="highest">Highest adjacent sum</option>
+            <option value="lowest">Lowest adjacent sum</option>
+          </select>
+      <button id="tossBtn" class="primary" title="Coin toss to choose starter"><span class="material-icons">casino</span> Toss</button>
+      <button id="resetBtn" class="ghost" title="Start a fresh game"><span class="material-icons">autorenew</span> New Game</button>
+      <button id="autoNamesBtn" title="Auto-generate player names" aria-label="Auto names" class="ghost"><span class="material-icons">autorenew</span> Auto Names</button>
+        </div>
+        <div class="panel legend" id="legend">
+      <div class="player"><span class="avatar" id="av0">P1</span><span class="dot p1"></span><input id="name0" type="text" placeholder="Player 1" value="Player 1" aria-label="Player 1 name" style="font-family:'Abril Fatface', serif; font-size:14px;"/></div>
+      <div class="player"><span class="avatar" id="av1">P2</span><span class="dot p2"></span><input id="name1" type="text" placeholder="Player 2" value="Player 2" aria-label="Player 2 name" style="font-family:'Abril Fatface', serif; font-size:14px;"/></div>
+      <div class="player" id="p3nameWrap" style="display:none"><span class="avatar" id="av2">P3</span><span class="dot p3"></span><input id="name2" type="text" placeholder="Player 3" value="Player 3" aria-label="Player 3 name" style="font-family:'Abril Fatface', serif; font-size:14px;"/></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="board-wrap">
+      <div id="board" class="board" role="grid" aria-label="Triangular board"></div>
+      <div class="statusbar">
+        <div id="turnBox" class="status" aria-live="polite">Choose players and hit Toss to start.</div>
+        <div id="nextBox" class="status">Next numbers —
+          <span id="nwrap0"> <strong id="n0">1</strong> </span>
+          <span id="nwrap1"> · <strong id="n1">1</strong> </span>
+          <span id="nwrap2" style="display:none"> · <strong id="n2">1</strong> </span>
+          <span class="hint" id="rangeHint" style="margin-left:8px; color:var(--muted)"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Draggable Modal for result -->
+  <div id="modalBackdrop" class="modal-backdrop">
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+      <header id="modalHeader">
+        <h2 id="resultTitle">Game Over</h2>
+      </header>
+      <div class="content">
+        <p id="resultText" style="margin:8px 0 14px 0"></p>
+        <div class="row" style="gap:10px; display:flex; justify-content:flex-end">
+          <button id="playAgain">Play again</button>
+          <button id="closeModal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  (function(){
+    // --- Auto name generator ---
+    function randomName(seed){
+      const prefixes = ['Nova','Quasar','Nebula','Astra','Orion','Vortex','Zenith','Lumen','Halo','Echo','Pulse','Rift'];
+      const suffix = ['Prime','One','Axis','Core','Edge','Flux','Drift','Vale'];
+      const p = prefixes[Math.floor(Math.random()*prefixes.length)];
+      const s = suffix[Math.floor(Math.random()*suffix.length)];
+      return seed? `${p} ${s}` : `${p} ${Math.floor(Math.random()*90+10)}`;
+    }
+    // --- Config ---
+    const COLORS = [
+      {cls:'owner-0', ghost:'var(--p1-ghost)', ring:'var(--p1)'},
+      {cls:'owner-1', ghost:'var(--p2-ghost)', ring:'var(--p2)'},
+      {cls:'owner-2', ghost:'var(--p3-ghost)', ring:'var(--p3)'}
+    ];
+
+    // --- DOM ---
+    const boardEl = document.getElementById('board');
+    const turnBox = document.getElementById('turnBox');
+    const winModeSel = document.getElementById('winMode');
+    const playerCountSel = document.getElementById('playerCount');
+    const nameInputs = [
+      document.getElementById('name0'),
+      document.getElementById('name1'),
+      document.getElementById('name2')
+    ];
+    const p3wrap = document.getElementById('p3nameWrap');
+  const autoNamesBtn = document.getElementById('autoNamesBtn');
+    const nEls = [document.getElementById('n0'), document.getElementById('n1'), document.getElementById('n2')];
+    const nWraps = [document.getElementById('nwrap0'), document.getElementById('nwrap1'), document.getElementById('nwrap2')];
+    const rangeHint = document.getElementById('rangeHint');
+
+    const toastEl = document.getElementById('toast');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const modal = document.getElementById('modal');
+    const modalHeader = document.getElementById('modalHeader');
+    const resultText = document.getElementById('resultText');
+
+    // --- State ---
+    let ROWS = 6; // default for 2 players
+    let totalCells = 0;
+    let playerCount = 2;
+    let maxNumber = 10; // will be derived
+    let cells = []; // {r,c, el, owner:null|idx, value:null|number}
+    let currentPlayer = null; // idx or null
+    let nextNum = []; // per-player next number
+    let placed = []; // per-player placed count
+    let gameOver = false;
+
+    // --- Helpers ---
+    function showToast(msg){
+      toastEl.textContent = msg; toastEl.classList.add('show');
+      clearTimeout(showToast._t); showToast._t = setTimeout(()=>toastEl.classList.remove('show'), 1600);
+    }
+    function setTurnText(){
+      if(gameOver){ return; }
+      if(currentPlayer===null){ turnBox.textContent = 'Choose players and hit Toss to start.'; return; }
+      const n = nextNum[currentPlayer];
+      const done = n>maxNumber;
+  const name = nameInputs[currentPlayer].value || nameInputs[currentPlayer].placeholder || `Player ${currentPlayer+1}`;
+      if(done){ turnBox.innerHTML = `${name} has placed all numbers.`; }
+      else{ turnBox.innerHTML = `${name} to move · placing <strong>${n}</strong>`; }
+      nEls.forEach((el,i)=>{ el.textContent = Math.min(nextNum[i]||1, maxNumber); });
+    }
+    function neighbors(r,c){
+      const n = [];
+      if(c-1>=0) n.push([r,c-1]);
+      if(c+1<=r) n.push([r,c+1]);
+      if(r-1>=0){ if(c-1>=0 && c-1<=r-1) n.push([r-1,c-1]); if(c<=r-1) n.push([r-1,c]); }
+      if(r+1<ROWS){ if(c<=r+1) n.push([r+1,c]); if(c+1<=r+1) n.push([r+1,c+1]); }
+      return n;
+    }
+    function coordKey(r,c){ return r+'-'+c; }
+
+    function deriveNumbers(){
+      totalCells = ROWS*(ROWS+1)/2;
+      maxNumber = Math.floor((totalCells-1)/playerCount); // ensures exactly 1 hole when all players finish
+      rangeHint.textContent = `Range per player: 1–${maxNumber}`;
+    }
+
+    // ripple effect for buttons
+    function createRipple(e){
+      const btn = e.currentTarget;
+      const rect = btn.getBoundingClientRect();
+      const r = document.createElement('div');
+      r.className = 'ripple';
+      const size = Math.max(rect.width, rect.height);
+      r.style.width = r.style.height = size + 'px';
+      r.style.left = (e.clientX - rect.left - size/2) + 'px';
+      r.style.top = (e.clientY - rect.top - size/2) + 'px';
+      btn.appendChild(r);
+      setTimeout(()=> r.remove(), 700);
+    }
+
+
+    function buildBoard(){
+      // players
+      playerCount = parseInt(playerCountSel.value,10);
+      ROWS = (playerCount===3)?7:6;
+      p3wrap.style.display = (playerCount===3)?'flex':'none';
+      nWraps[2].style.display = (playerCount===3)?'inline':'none';
+
+      deriveNumbers();
+
+      // init state
+      boardEl.innerHTML=''; cells=[]; currentPlayer=null; gameOver=false;
+      nextNum = Array.from({length:playerCount}, ()=>1);
+      placed = Array.from({length:playerCount}, ()=>0);
+      setTurnText();
+
+      // Smart auto-fill placeholders for empty/default names
+      nameInputs.forEach((inp, idx)=>{
+        if(!inp.value || inp.value.trim()==='' || inp.value.startsWith('Player')){
+          inp.placeholder = randomName(idx===0);
+          // if completely empty, fill for a friendlier UI
+          if(!inp.value || inp.value.trim()==='' ) inp.value = inp.placeholder;
+        }
+      });
+
+      for(let r=0;r<ROWS;r++){
+        const row = document.createElement('div'); row.className='row'; row.setAttribute('role','row');
+        for(let c=0;c<=r;c++){
+          const el = document.createElement('button');
+          el.className = 'cell empty'; el.setAttribute('data-r',r); el.setAttribute('data-c',c);
+          el.setAttribute('aria-label',`Empty cell at row ${r+1}, position ${c+1}`);
+          el.addEventListener('click', onCellClick);
+          row.appendChild(el);
+          cells.push({r,c,el, owner:null, value:null});
+        }
+        boardEl.appendChild(row);
+      }
+      // stagger reveal rows
+      Array.from(boardEl.children).forEach((row, idx)=>{
+        row.style.animationDelay = (idx*40)+'ms';
+      });
+
+      // initialize avatars from names
+      updateAvatars();
+    }
+
+    function initialsFrom(name){
+      if(!name) return '';
+      const parts = name.trim().split(/\s+/);
+      if(parts.length===1) return parts[0].substring(0,2).toUpperCase();
+      return (parts[0][0]+parts[1][0]).toUpperCase();
+    }
+    function updateAvatars(){
+      nameInputs.forEach((inp, idx)=>{
+        const av = document.getElementById('av'+idx);
+        if(!av) return;
+        av.textContent = initialsFrom(inp.value || inp.placeholder || `P${idx+1}`);
+      });
+    }
+
+    // update avatars live when names change
+    nameInputs.forEach((inp)=> inp.addEventListener('input', updateAvatars));
+
+    function getCell(r,c){ return cells.find(x=>x.r===r && x.c===c); }
+
+    function onCellClick(e){
+      if(gameOver) return;
+      if(currentPlayer===null){ showToast('Do a toss to decide who starts.'); return; }
+
+      const el = e.currentTarget;
+      const r = +el.getAttribute('data-r');
+      const c = +el.getAttribute('data-c');
+      const cell = getCell(r,c);
+      if(cell.owner!==null){ showToast('Cell already filled.'); return; }
+
+      // If current player is done, rotate to next available
+      if(nextNum[currentPlayer]>maxNumber){
+        currentPlayer = nextAvailablePlayer();
+        if(currentPlayer===null){ return; }
+      }
+
+      const n = nextNum[currentPlayer];
+      if(n>maxNumber){ showToast('No more numbers to place.'); return; }
+
+  // Place
+      cell.owner = currentPlayer; cell.value = n; placed[currentPlayer]++;
+  el.classList.remove('empty'); el.classList.add('filled', COLORS[currentPlayer].cls, 'placed');
+  el.textContent = n;
+  // animate the number briefly
+  el.classList.remove('numPulse'); void el.offsetWidth; // force reflow
+  el.classList.add('numPulse');
+      const name = nameInputs[currentPlayer].value || `Player ${currentPlayer+1}`;
+      el.setAttribute('aria-label',`${name} placed ${n}`);
+      nextNum[currentPlayer]++;
+      nEls[currentPlayer].textContent = Math.min(nextNum[currentPlayer], maxNumber);
+
+      // End check
+      const filled = cells.filter(x=>x.owner!==null).length;
+      if(filled === totalCells-1){ endGame(); return; }
+
+      // next player turn (skip finished)
+      currentPlayer = nextAvailablePlayer(currentPlayer+1);
+      setTurnText();
+    }
+
+    function nextAvailablePlayer(startIdx){
+      if(typeof startIdx==='undefined') startIdx = currentPlayer===null?0:currentPlayer+1;
+      for(let i=0;i<playerCount;i++){
+        const idx = (startIdx + i) % playerCount;
+        if(nextNum[idx] <= maxNumber) return idx;
+      }
+      return null; // all done
+    }
+
+    function endGame(){
+      gameOver=true;
+      const hole = cells.find(x=>x.owner===null);
+      if(!hole){ showToast('Unexpected: no black hole.'); return; }
+      hole.el.classList.add('hole'); hole.el.textContent = ''; hole.el.setAttribute('aria-label','Black hole');
+  hole.el.classList.add('holeReveal');
+
+      const adj = neighbors(hole.r, hole.c).map(([r,c])=>getCell(r,c));
+      const sums = Array.from({length:playerCount}, ()=>0);
+      adj.forEach(a=>{ if(a && a.owner!==null && typeof a.value==='number'){ sums[a.owner]+=a.value; } });
+
+      const mode = winModeSel.value; // 'highest' | 'lowest'
+      const best = (mode==='highest') ? Math.max(...sums) : Math.min(...sums);
+      const winners = [];
+      sums.forEach((s,i)=>{ if(s===best) winners.push(i); });
+
+      const adjList = adj.map(a=> a.owner===null? '·' : `${(nameInputs[a.owner].value||`Player ${a.owner+1}`)}:${a.value}`).join('  ');
+      const detail = `Black hole at row ${hole.r+1}, pos ${hole.c+1}.
+Adjacent → ${adjList}
+Sums → ${sums.map((s,i)=>`${nameInputs[i].value||`Player ${i+1}`}`+":"+s).join(' · ')}
+Win mode: ${mode}.`;
+      showResult(winners, sums, detail);
+      turnBox.innerHTML = `Game over. ${sums.map((s,i)=>`<strong>${nameInputs[i].value||`Player ${i+1}`}</strong>: ${s}`).join(' · ')}`;
+    }
+
+    function showResult(winnerIdxs, sums, detail){
+      const modeText = winModeSel.value==='highest' ? 'Highest sum wins' : 'Lowest sum wins';
+      let html = `<strong>${modeText}</strong><br/>`;
+      html += sums.map((s,i)=>`${nameInputs[i].value||`Player ${i+1}`}: <strong>${s}</strong>`).join(' · ');
+      html += '<br/>';
+      if(winnerIdxs.length>1){
+        html += `<br/><span style="padding:6px 10px;border:1px solid #1f2937;border-radius:999px;">🤝 Tie: ${winnerIdxs.map(i=>nameInputs[i].value||`Player ${i+1}`).join(', ')}</span>`;
+      } else {
+        const wi = winnerIdxs[0];
+        const color = wi===0?'var(--p1)':wi===1?'var(--p2)':'var(--p3)';
+        html += `<br/> <span style="padding:6px 10px;border:2px solid ${color};border-radius:999px;">🏆 ${(nameInputs[wi].value||`Player ${wi+1}`)} wins</span>`;
+      }
+      resultText.innerHTML = html;
+
+  // Show modal centered and draggable with animation
+  modalBackdrop.classList.add('show');
+  modal.classList.add('show');
+  centerModal();
+    }
+
+    function doToss(){
+      currentPlayer = Math.floor(Math.random()*playerCount);
+      setTurnText();
+      const name = nameInputs[currentPlayer].value || `Player ${currentPlayer+1}`;
+      showToast(`Coin toss → ${name} starts`);
+  // subtle animation: pulse the starting player's dot
+  const dot = document.querySelectorAll('.legend .dot')[currentPlayer];
+  if(dot){ dot.animate([{transform:'scale(1)'},{transform:'scale(1.18)'},{transform:'scale(1)'}], {duration:800, easing:'ease-in-out'});
+  }
+    }
+
+    // --- Draggable modal ---
+    function centerModal(){
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const rect = modal.getBoundingClientRect();
+      modal.style.left = Math.max(8, (vw-rect.width)/2) + 'px';
+      modal.style.top  = Math.max(8, (vh-rect.height)/2) + 'px';
+    }
+    (function enableDrag(){
+      let dragging=false, sx=0, sy=0, startLeft=0, startTop=0;
+      function onDown(e){
+        dragging=true; sx = e.clientX; sy = e.clientY;
+        const r = modal.getBoundingClientRect(); startLeft=r.left; startTop=r.top; e.preventDefault();
+      }
+      function onMove(e){
+        if(!dragging) return; const dx=e.clientX-sx, dy=e.clientY-sy;
+        const vw=window.innerWidth, vh=window.innerHeight; const rect=modal.getBoundingClientRect();
+        let L = startLeft+dx, T = startTop+dy;
+        // constrain a bit within viewport
+        L = Math.min(vw-40, Math.max(-rect.width+40, L));
+        T = Math.min(vh-40, Math.max(-rect.height+40, T));
+        modal.style.left = L+"px"; modal.style.top = T+"px";
+      }
+      function onUp(){ dragging=false; }
+      modalHeader.addEventListener('mousedown', onDown);
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      window.addEventListener('resize', ()=>{ if(modalBackdrop.style.display!=='none'){ centerModal(); } });
+    })();
+
+  // attach ripple to existing buttons
+  Array.from(document.querySelectorAll('button')).forEach(b=> b.addEventListener('click', createRipple));
+
+    // --- Wire UI ---
+    document.getElementById('tossBtn').addEventListener('click', ()=>{
+      if(gameOver){ buildBoard(); }
+      if(currentPlayer!==null){ showToast('Toss already done.'); return; }
+      doToss();
+    });
+    document.getElementById('resetBtn').addEventListener('click', buildBoard);
+    autoNamesBtn.addEventListener('click', ()=>{
+      nameInputs.forEach((inp, idx)=>{ inp.value = randomName(idx===0); });
+      showToast('Player names updated');
+    });
+  document.getElementById('closeModal').addEventListener('click', ()=>{ modalBackdrop.classList.remove('show'); modal.classList.remove('show'); });
+  document.getElementById('playAgain').addEventListener('click', ()=>{ modalBackdrop.classList.remove('show'); modal.classList.remove('show'); buildBoard(); });
+    playerCountSel.addEventListener('change', buildBoard);
+
+    // Start
+    buildBoard();
+  })();
+  </script>
+</body>
+</html>
